@@ -4,217 +4,211 @@
 <meta charset="UTF-8">
 <title>騎士巡禮 Knight’s Tour</title>
 <style>
-  body{font-family:system-ui,Arial,Helvetica,sans-serif;padding:20px;text-align:center;}
-  #controls{margin-bottom:12px;}
-  #board{display:grid;gap:2px;justify-content:center;margin-top:10px;}
-  .cell{
-    width:48px;height:48px;line-height:48px;
+  body { font-family:system-ui,Arial,Helvetica,sans-serif; padding:20px; text-align:center; }
+  /* 介紹頁面與遊戲容器 */
+  #intro { max-width:600px; margin:40px auto; text-align:left; }
+  #game { display:none; }
+  #intro h2 { margin-top:0; }
+  #intro ol { padding-left:20px; }
+  #intro button { padding:8px 16px; font-size:16px; cursor:pointer; }
+
+  #controls { margin-bottom:12px; }
+  #board { display:grid; gap:2px; justify-content:center; margin-top:10px; }
+  .cell {
+    width:48px; height:48px; line-height:48px;
     background: url('grass.jpg') center center / cover no-repeat;
     position: relative;
-    font-weight:bold;font-size:18px;user-select:none;transition:background-color .2s;
+    font-weight:bold; font-size:18px; user-select:none;
+    transition:background-color .2s;
   }
   .cell.visited {
-  /* 第一個背景：半透明藍色（或你想要的顏色）漸層，第二層才是草皮 */
-  background-image:
-    linear-gradient(rgba(28, 28, 30, 0.3), rgba(0, 0, 255, 0.3)),
-    url('grass.jpg');
-  background-size: cover;             /* 讓兩層圖都撐滿格子 */
-  background-position: center center; /* 圖層置中 */
-  background-repeat: no-repeat;
-  /* 如果要改文字顏色： */
-  color: #ffeb3b;
-}
-  .cell.current {
-    outline: 3px solid #f5911d;
+    background-image:
+      linear-gradient(rgba(0, 0, 255, 0.3), rgba(0, 0, 255, 0.3)),
+      url('grass.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #ffeb3b;
   }
-  @keyframes shake{
-    0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}
-  }
+  .cell.current { outline: 3px solid #f5911d; }
+  @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-4px);} 75%{transform:translateX(4px);} }
+  .invalid { animation:shake .25s; }
+  /* 動畫 */
+  @keyframes fadeIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.8);} to { opacity:1; transform:translate(-50%,-50%) scale(1);} }
+  @keyframes fadeOut{ from { opacity:1; transform:translate(-50%,-50%) scale(1);} to { opacity:0; transform:translate(-50%,-50%) scale(0.8);} }
+  .knight-icon { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:32px; height:32px; pointer-events:none; user-select:none; opacity:0; animation-fill-mode:forwards; }
+  .knight-icon.fade-in  { animation:fadeIn 0.3s ease-out forwards; }
+  .knight-icon.fade-out { animation:fadeOut 0.3s ease-in forwards; }
 
-  /* 淡入淡出動畫 */
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  }
-  @keyframes fadeOut {
-    from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    to   { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-  }
-
-  /* 騎士圖示 */
-  .knight-icon {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 32px; height: 32px;
-    pointer-events: none;
-    user-select: none;
-    opacity: 0;
-    animation-fill-mode: forwards;
-  }
-  .knight-icon.fade-in {
-    animation: fadeIn 0.3s ease-out forwards;
-  }
-  .knight-icon.fade-out {
-    animation: fadeOut 0.3s ease-in forwards;
-  }
-
-  /* --- 排行榜改成棋盤下方區塊 --- */
-  #leaderboard{margin-top:20px;display:block;}
-  #leaderPanel{background:#fff;padding:20px 30px;border-radius:8px;display:inline-block;}
-  #leaderPanel h2{margin-top:0;}
-  #leaderPanel table{border-collapse:collapse;margin:auto;}
-  #leaderPanel th,#leaderPanel td{border:1px solid #ccc;padding:4px 8px;}
-
-  /* 最高權重隱藏用 */
-  .hidden{display:none !important;}
+  /* 排行榜 */
+  #leaderboard { margin-top:20px; display:block; }
+  #leaderPanel { background:#fff; padding:20px 30px; border-radius:8px; display:inline-block; }
+  #leaderPanel h2 { margin-top:0; }
+  #leaderPanel table { border-collapse:collapse; margin:auto; }
+  #leaderPanel th,#leaderPanel td { border:1px solid #ccc; padding:4px 8px; }
+  .hidden { display:none !important; }
 </style>
 </head>
 <body>
 
-<h1>騎士巡禮 Knight’s Tour</h1>
-
-<div id="controls">
-  棋盤大小：
-  <select id="sizeSel">
-    <option>5</option><option>6</option><option>7</option>
-    <option selected>8</option><option>9</option><option>10</option>
-  </select>
-  <button id="startBtn">Start / Reset</button>
-  <button id="undoBtn" disabled>Undo</button>
-  <button id="showLbBtn">排行榜</button><br>
-  ⏱ <span id="timer">0.0</span>s　│　步數 <span id="stepInfo">0</span> / <span id="totalSteps">0</span>　│　悔棋 <span id="undoInfo">0</span>
+<!-- 遊戲說明頁 -->
+<div id="intro">
+  <h2>遊戲說明</h2>
+  <p>歡迎來到「騎士巡禮」！請先閱讀以下規則，再按「進入遊戲」開始挑戰：</p>
+  <ol>
+    <li>遊戲目標：將騎士移動至棋盤上每一個格子，且每個格子只能拜訪一次。完成所有格子即通關！</li>
+    <li>移動方式：騎士只能走「L」形：橫向跨兩格後直向一格，或直向跨兩格後橫向一格。第一步可任意出發。</li>
+    <li>操作介面：點擊格子移動騎士並標示步數；<strong>Undo</strong>退回上一步；計時器計算挑戰時間；排行榜紀錄成績。</li>
+    <li>重玩機制：點「進入遊戲」後，重新玩不會再顯示說明；只要重新開啟網頁才會再次看到此說明。</li>
+  </ol>
+  <button id="enterBtn">進入遊戲</button>
 </div>
 
-<div id="status"></div>
-<div id="board"></div>
-
-<!-- 排行榜 -->
-<div id="leaderboard" class="hidden">
-  <div id="leaderPanel">
-    <h2>排行榜</h2>
-    <table>
-      <thead><tr><th>#</th><th>玩家</th><th>大小</th><th>時間(s)</th><th>步數</th><th>悔棋</th><th>日期</th></tr></thead>
-      <tbody id="lbBody"></tbody>
-    </table>
-    <button id="closeLb">Close</button>
+<!-- 遊戲介面容器 -->
+<div id="game">
+  <h1>騎士巡禮 Knight’s Tour</h1>
+  <div id="controls">
+    棋盤大小：
+    <select id="sizeSel"><option>5</option><option>6</option><option>7</option><option selected>8</option><option>9</option><option>10</option></select>
+    <button id="startBtn">Start / Reset</button>
+    <button id="undoBtn" disabled>Undo</button>
+    <button id="showLbBtn">排行榜</button><br>
+    ⏱ <span id="timer">0.0</span>s　│　步數 <span id="stepInfo">0</span> / <span id="totalSteps">0</span>　│　悔棋 <span id="undoInfo">0</span>
+  </div>
+  <div id="status"></div>
+  <div id="board"></div>
+  <!-- 排行榜 -->
+  <div id="leaderboard" class="hidden">
+    <div id="leaderPanel">
+      <h2>排行榜</h2>
+      <table>
+        <thead><tr><th>#</th><th>玩家</th><th>大小</th><th>時間(s)</th><th>步數</th><th>悔棋</th><th>日期</th></tr></thead>
+        <tbody id="lbBody"></tbody>
+      </table>
+      <button id="closeLb">Close</button>
+    </div>
   </div>
 </div>
 
 <script>
 (() => {
-  const boardDiv = document.getElementById("board");
-  const sizeSel  = document.getElementById("sizeSel");
-  const startBtn = document.getElementById("startBtn");
-  const undoBtn  = document.getElementById("undoBtn");
-  const showLbBtn= document.getElementById("showLbBtn");
-  const statusEl = document.getElementById("status");
-  const timerEl  = document.getElementById("timer");
-  const stepEl   = document.getElementById("stepInfo");
-  const totalEl  = document.getElementById("totalSteps");
-  const undoInfo = document.getElementById("undoInfo");
-  const lbWrap   = document.getElementById("leaderboard");
-  const lbBody   = document.getElementById("lbBody");
-  const closeLb  = document.getElementById("closeLb");
+  // 介紹 & 遊戲容器
+  const introDiv = document.getElementById('intro');
+  const enterBtn = document.getElementById('enterBtn');
+  const gameDiv  = document.getElementById('game');
 
+  // DOM 快取
+  const boardDiv = document.getElementById('board');
+  const sizeSel  = document.getElementById('sizeSel');
+  const startBtn = document.getElementById('startBtn');
+  const undoBtn  = document.getElementById('undoBtn');
+  const showLbBtn= document.getElementById('showLbBtn');
+  const statusEl = document.getElementById('status');
+  const timerEl  = document.getElementById('timer');
+  const stepEl   = document.getElementById('stepInfo');
+  const totalEl  = document.getElementById('totalSteps');
+  const undoInfo = document.getElementById('undoInfo');
+  const lbWrap   = document.getElementById('leaderboard');
+  const lbBody   = document.getElementById('lbBody');
+  const closeLb  = document.getElementById('closeLb');
+
+  // 遊戲狀態
   let N, step, current, visited, history;
-  let startTime = null, timerId = null, undoCount = 0;
-  const moves = [[2,1],[1,2],[-1,2],[-2,1],[-2,-1],[-1,-2],[1,-2],[2,-1]];
+  let startTime=null, timerId=null, undoCount=0;
+  const moves=[[2,1],[1,2],[-1,2],[-2,1],[-2,-1],[-1,-2],[1,-2],[2,-1]];
 
-  startBtn.onclick = initGame;
-  undoBtn.onclick  = undoMove;
-  showLbBtn.onclick= () => { renderLeaderboard(); lbWrap.classList.toggle("hidden"); };
-  closeLb.onclick  = () => lbWrap.classList.add("hidden");
+  // 先綁定「進入遊戲」按鈕
+  enterBtn.onclick = () => {
+    introDiv.classList.add('hidden');
+    gameDiv.classList.remove('hidden');
+    initGame();  // 顯示遊戲後啟動
+  };
 
+  // 綁定遊戲按鈕
+  startBtn.onclick  = initGame;
+  undoBtn.onclick   = undoMove;
+  showLbBtn.onclick = () => { renderLeaderboard(); lbWrap.classList.toggle('hidden'); };
+  closeLb.onclick   = () => lbWrap.classList.add('hidden');
+
+  // 初始化遊戲
   function initGame(){
-    N = +sizeSel.value; step = 0; current = null;
-    visited = new Set(); history = []; undoCount = 0;
-    statusEl.textContent = ""; stepEl.textContent = "0";
-    totalEl.textContent = N*N; undoInfo.textContent = "0";
-    undoBtn.disabled = true; stopTimer();
-    boardDiv.style.gridTemplateColumns = `repeat(${N}, 48px)`;
-    boardDiv.innerHTML = "";
-    for(let y=0; y<N; y++){
-      for(let x=0; x<N; x++){
-        const cell = document.createElement("div");
-        cell.className = "cell"; cell.dataset.x = x; cell.dataset.y = y;
-        cell.onclick = onCellClick;
-        boardDiv.appendChild(cell);
-      }
+    N = +sizeSel.value;
+    step=0; current=null;
+    visited=new Set(); history=[]; undoCount=0;
+    statusEl.textContent=''; stepEl.textContent='0';
+    totalEl.textContent=N*N; undoInfo.textContent='0';
+    undoBtn.disabled=true; stopTimer();
+
+    boardDiv.style.gridTemplateColumns = `repeat(${N},48px)`;
+    boardDiv.innerHTML='';
+    for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+      const cell=document.createElement('div');
+      cell.className='cell'; cell.dataset.x=x; cell.dataset.y=y;
+      cell.onclick=onCellClick;
+      boardDiv.appendChild(cell);
     }
   }
 
+  // 點擊格子
   function onCellClick(e){
-    const cell = e.currentTarget;
-    const x = +cell.dataset.x, y = +cell.dataset.y;
-    const key = `${x},${y}`;
-    if(step === 0){ markVisit(cell, key); startTimer(); return; }
+    const cell=e.currentTarget;
+    const x=+cell.dataset.x, y=+cell.dataset.y;
+    const key=`${x},${y}`;
+    if(step===0) { markVisit(cell,key); startTimer(); return; }
     if(visited.has(key)) return;
     if(!moves.some(([dx,dy])=>current.x+dx===x && current.y+dy===y)) { flashInvalid(cell); return; }
-    markVisit(cell, key);
-    if(step === N*N){ stopTimer(); statusEl.textContent = "完成巡禮！🎉"; saveRecord(); }
+    markVisit(cell,key);
+    if(step===N*N) { stopTimer(); statusEl.textContent='完成巡禮！🎉'; saveRecord(); }
   }
 
-  function markVisit(cell, key){
-    // 淡出上一步的騎士圖示
-    const prev = document.querySelector('.knight-icon');
+  // 標記拜訪與騎士圖案
+  function markVisit(cell,key){
+    const prev=document.querySelector('.knight-icon');
     if(prev){ prev.classList.remove('fade-in'); prev.classList.add('fade-out');
-      prev.addEventListener('animationend', ()=>prev.remove(), { once:true });
+      prev.addEventListener('animationend',()=>prev.remove(),{once:true});
     }
-    // 更新步數與樣式
     step++;
-    cell.textContent = step;
-    cell.classList.add("visited");
-    document.querySelector(".cell.current")?.classList.remove("current");
-    cell.classList.add("current");
-    visited.add(key);
-    // 插入並淡入新騎士圖示
-    const img = document.createElement('img');
-    img.src = 'knight.JPG'; img.className = 'knight-icon fade-in';
+    cell.textContent=step;
+    cell.classList.add('visited');
+    document.querySelector('.cell.current')?.classList.remove('current');
+    cell.classList.add('current'); visited.add(key);
+    const img=document.createElement('img');
+    img.src='knight.JPG'; img.className='knight-icon fade-in';
     cell.appendChild(img);
-    // 更新狀態 & Undo
-    current = { x:+cell.dataset.x, y:+cell.dataset.y };
-    history.push(current);
-    stepEl.textContent = step;
-    undoBtn.disabled = history.length <= 1;
+    current={x:+cell.dataset.x,y:+cell.dataset.y}; history.push(current);
+    stepEl.textContent=step; undoBtn.disabled = history.length<=1;
   }
 
-  function undoMove(){
-    if(history.length <= 1) return;
-    const last = history.pop(); visited.delete(`${last.x},${last.y}`);
-    const lastCell = document.querySelector(`.cell[data-x="${last.x}"][data-y="${last.y}"]`);
-    lastCell.textContent = "";
-    lastCell.classList.remove("visited","current");
-    step--; undoCount++; undoInfo.textContent = undoCount;
-    current = history[history.length-1];
-    document.querySelector(`.cell[data-x="${current.x}"][data-y="${current.y}"]`).classList.add("current");
-    stepEl.textContent = step; undoBtn.disabled = history.length <= 1; statusEl.textContent = "";
+  // 悔棋
+  function undoMove(){ if(history.length<=1) return;
+    const last=history.pop(); visited.delete(`${last.x},${last.y}`);
+    const c=document.querySelector(`.cell[data-x="${last.x}"][data-y="${last.y}"]`);
+    c.textContent=''; c.classList.remove('visited','current');
+    step--; undoCount++; undoInfo.textContent=undoCount;
+    current=history[history.length-1];
+    document.querySelector(`.cell[data-x="${current.x}"][data-y="${current.y}"]`).classList.add('current');
+    stepEl.textContent=step; undoBtn.disabled=history.length<=1; statusEl.textContent='';
   }
 
-  function flashInvalid(cell){ cell.classList.add("invalid"); setTimeout(()=>cell.classList.remove("invalid"),250); }
-
-  function startTimer(){ startTime = Date.now(); timerEl.textContent="0.0";
-    timerId = setInterval(()=>{ timerEl.textContent = ((Date.now()-startTime)/1000).toFixed(1); }, 100);
+  function flashInvalid(cell){ cell.classList.add('invalid'); setTimeout(()=>cell.classList.remove('invalid'),250); }
+  function startTimer(){ startTime=Date.now(); timerEl.textContent='0.0';
+    timerId=setInterval(()=>timerEl.textContent=((Date.now()-startTime)/1000).toFixed(1),100);
   }
   function stopTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } }
 
-  function saveRecord(){
-    const elapsed = ((Date.now()-startTime)/1000).toFixed(1);
-    const name = prompt("恭喜完成！留下大名上榜～","Player") || "Anonymous";
-    let list = JSON.parse(localStorage.getItem("knightsLeaderboard")||"[]");
-    list.push({ name, size:N, time:+elapsed, steps:step, undos:undoCount, date:new Date().toLocaleDateString() });
-    list.sort((a,b)=>a.time-b.time); list = list.slice(0,20);
-    localStorage.setItem("knightsLeaderboard", JSON.stringify(list)); renderLeaderboard();
-  }
-
+  // 排行榜
+  function saveRecord(){ const elapsed=((Date.now()-startTime)/1000).toFixed(1);
+    const name=prompt('恭喜完成！留下大名上榜～','Player')||'Anonymous';
+    let list=JSON.parse(localStorage.getItem('knightsLeaderboard')||'[]');
+    list.push({name,size:N,time:+elapsed,steps:step,undos:undoCount,date:new Date().toLocaleDateString()});
+    list.sort((a,b)=>a.time-b.time); list=list.slice(0,20);
+    localStorage.setItem('knightsLeaderboard',JSON.stringify(list)); renderLeaderboard(); }
   function renderLeaderboard(){
-    const list = JSON.parse(localStorage.getItem("knightsLeaderboard")||"[]");
-    lbBody.innerHTML = list.length
-      ? list.map((r,i)=>`<tr><td>${i+1}</td><td>${r.name}</td><td>${r.size}×${r.size}</td><td>${r.time}</td><td>${r.steps}</td><td>${r.undos}</td><td>${r.date}</td></tr>`).join("")
-      : `<tr><td colspan="7">目前沒有紀錄</td></tr>`;
+    const list=JSON.parse(localStorage.getItem('knightsLeaderboard')||'[]');
+    lbBody.innerHTML=list.length
+      ? list.map((r,i)=>`<tr><td>${i+1}</td><td>${r.name}</td><td>${r.size}×${r.size}</td><td>${r.time}</td><td>${r.steps}</td><td>${r.undos}</td><td>${r.date}</td></tr>`).join('')
+      : '<tr><td colspan="7">目前沒有紀錄</td></tr>';
   }
-
-  initGame();
 })();
 </script>
 </body>
